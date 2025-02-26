@@ -26,7 +26,10 @@ import {
   RingGeometry,
   MeshBasicMaterial,
   PointLight,
-  Group
+  Group,
+  DirectionalLight,
+  ACESFilmicToneMapping,
+  PMREMGenerator
 } from 'three';
 
 // XR Emulator
@@ -39,6 +42,8 @@ import { XRButton } from 'three/addons/webxr/XRButton.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 import { ZZFX, zzfx } from 'zzfx';
+
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // If you prefer to import the whole library, with the THREE prefix, use the following line instead:
 // import * as THREE from 'three'
@@ -66,6 +71,7 @@ import {
 import {
   GLTFLoader
 } from 'three/addons/loaders/GLTFLoader.js';
+import { color } from 'three/tsl';
 
 // pong 
 // Handle audio - from the first example
@@ -147,6 +153,7 @@ let controller;
 // pong 
 let reticle;
 
+const y_cube = 2.5;
 
 const radius = 0.5;
 const widthSegments = 6;
@@ -178,8 +185,25 @@ const raquet = new Mesh(raquet_boxgeometry, raquet_box_material);
 raquet.material.transparent = true;
 raquet.material.opacity = 0.3;
 
+//barette gauche
+const barette_1_geometry = new BoxGeometry(0.1, y_cube, 0.1);
+const barette_1_material = new MeshPhongMaterial({ color: 0x7f00ff });
+const barette1 = new Mesh(barette_1_geometry, barette_1_material);
+barette1.position.set(-1.21, 0, 0);
 
 
+//barette droite
+const barette2 = new Mesh(barette_1_geometry, barette_1_material);
+barette2.position.set(1.21, 0, 0);
+
+//barette haute
+const barette_3_geometry = new BoxGeometry(y_cube, 0.1, 0.1);
+const barette3 = new Mesh(barette_3_geometry, barette_1_material);
+barette3.position.set(0, 1.21, 0);
+
+//barette basse
+const barette4 = new Mesh(barette_3_geometry, barette_1_material);
+barette4.position.set(0, -1.21, 0);
 
 renderer = new WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -222,6 +246,7 @@ function hide_target() {
 }
 
 function playBounceSound() {
+  ACESFilmicToneMapping
   if (audioInitialized) {
     zzfx(...[1, , 200, , .05, .2, 4, 2, , .5, , , , , , 6, , .1, .01]);
   }
@@ -237,6 +262,10 @@ function initGameGroup() {
   gameGroup.add(ball);
   gameGroup.add(raquet);
   gameGroup.add(target_ball);
+  gameGroup.add(barette1);
+  gameGroup.add(barette2);
+  gameGroup.add(barette3);
+  gameGroup.add(barette4);
 
   // Positionner les éléments relativement à leur place dans le cube
   ball.position.set(0, 0, 0);
@@ -301,7 +330,7 @@ function animate(t, frame) {
     // Ball movement
     ball.position.x = ball.position.x + speed_ball_x;
     ball.position.y = ball.position.y + speed_ball_y;
-    ball.position.z = ball.position.z + speed_ball_z;
+    ball.position.z = ball.position.z + speed_ball_z; ACESFilmicToneMapping
 
     // Collision avec la raquette
     const is_in_x = ball.position.x + ball_size < raquet.position.x + raquet_size_x && ball.position.x - ball_size > raquet.position.x - raquet_size_x;
@@ -358,12 +387,26 @@ const init = () => {
   hemiLight.position.set(0.5, 1, 0.25);
   scene.add(hemiLight);
 
+  const dirLight = new DirectionalLight(0xffffff, 3);
+  dirLight.color.setHSL(0.1, 1, 0.95);
+  dirLight.position.set(- 1, 1.75, 1);
+  dirLight.position.multiplyScalar(30);
+  scene.add(dirLight);
+
   renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setAnimationLoop(animate); // requestAnimationFrame() replacement, compatible with XR 
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
+
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1;
+
+  const environment = new RoomEnvironment();
+  const pmremGenerator = new PMREMGenerator(renderer);
+
+  scene.environment = pmremGenerator.fromScene(environment).texture;
 
   const xrButton = XRButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
   xrButton.style.backgroundColor = 'skyblue';

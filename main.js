@@ -23,6 +23,8 @@ import {
   Raycaster,
   Vector2,
   TextureLoader,
+  RingGeometry,
+  MeshBasicMaterial,
   PointLight
 } from 'three';
 
@@ -32,6 +34,8 @@ import { XRDevice, metaQuest3 } from 'iwer';
 
 // XR
 import { XRButton } from 'three/addons/webxr/XRButton.js';
+
+import { ZZFX, zzfx } from 'zzfx';
 
 // If you prefer to import the whole library, with the THREE prefix, use the following line instead:
 // import * as THREE from 'three'
@@ -64,6 +68,19 @@ import {
 // Handle audio - from the first example
 let audioContext = null;
 let audioInitialized = false;
+let hitTestSource = null;
+let hitTestSourceRequested = false;
+
+let speed_ball_x = 0.05;
+let speed_ball_y = 0.05;
+let speed_ball_z = 0.04;
+const ball_size = 0.05;
+const cube_size = 1;
+const raquet_size_x = 0.2;
+const raquet_size_y = 0.2;
+let score = 0;
+let targetVisible = true;
+let targetRespawnTimeout = null;
 
 const initAudio = () => {
   if (!audioInitialized) {
@@ -74,14 +91,9 @@ const initAudio = () => {
 // end pong 
 
 // pong 
-// Pour le son de rebond, si importé correctement
-const playBounceSound = () => {
-  if (audioInitialized) {
-    // Si vous avez importé ZZFX, vous pouvez décommenter cette ligne:
-    // zzfx(...[1,,200,,.05,.2,4,2,,.5,,,,,,6,,.1,.01]); 
-    console.log("Bounce sound would play here");
-  }
-};
+
+const mouse = new Vector2(1, 1);
+const raycaster = new Raycaster();
 // end pong 
 
 // Example of hard link to official repo for data, if needed
@@ -124,161 +136,207 @@ async function setupXR(xrMode) {
 await setupXR('immersive-ar');
 
 // pong 
-let speed_ball_x = 0.05;
-let speed_ball_y = 0.05;
-let speed_ball_z = 0.04;
-const ball_size = 0.1;
-const cube_size = 1; 
-const raquet_size_x = 0.2; 
-const raquet_size_y = 0.2;
-let score = 0;
-let targetVisible = true;
-let targetRespawnTimeout = null;
 
-const mouse = new Vector2(1, 1);
-const raycaster = new Raycaster();
 
 // end pong
 
 // Variables pour la scène
 let camera, scene, renderer;
 let controller;
-let ball, space_box;
 // pong 
+let reticle;
+
+
+const radius = 0.5;
+const widthSegments = 6;
+const heightSegments = 6;
+const radiustop = 5;
+const radiusbottom = 5;
+const height_disk = 0.1;
+const radius_seg = 36;
+
+const space_boxgeometry = new BoxGeometry(1, 1, 1);
+const space_box_material = new MeshLambertMaterial({ side: BackSide });
+const space_box = new Mesh(space_boxgeometry, space_box_material);
+
+
+const sphereGeometry = new SphereGeometry(
+  radius, widthSegments, heightSegments);
+
+const cylinderGeometry = new CylinderGeometry(
+  radiustop, radiusbottom, height_disk, radius_seg);
+
+const raquet_boxgeometry = new BoxGeometry(0.05, 0.05, 0.1);
+const raquet_box_material = new MeshLambertMaterial();
+const raquet = new Mesh(raquet_boxgeometry, raquet_box_material);
+
+
+renderer = new WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const ball_material = new MeshNormalMaterial();
+const ball = new Mesh(sphereGeometry, ball_material)
+ball.scale.set(0.2, 0.2, 0.2);
+
+
+
+const target_material = new MeshNormalMaterial();
+const target = new Mesh(cylinderGeometry, target_material);
+target.scale.set(0.05, 0.05, 0.05);
+target.rotateX(Math.PI / 2);
+target.position.z = -2.499;
+
+
+
 
 // Fonction pour créer et positionner la cible
-const create_target = () => {
-  // Générer une position aléatoire pour la cible à l'intérieur du cube
+function create_target() {
   const x = (Math.random() - 0.5) * (cube_size * 0.8);
   const y = (Math.random() - 0.5) * (cube_size * 0.8);
-  const z = (Math.random() - 0.5) * (cube_size * 0.8);
-  
-  target.position.set(
-    space_box.position.x + x,
-    space_box.position.y + y,
-    space_box.position.z + z
-  );
-  
+
+  target.position.x = x;
+  target.position.y = y;
+  target.position.z = -2.499;
+
   targetVisible = true;
-};
+}
 
 
-const hide_target = () => {
-  // Déplacer la cible hors du cube
-  target.position.set(
-    space_box.position.x + 10, // Position hors du cube
-    space_box.position.y,
-    space_box.position.z
-  );
-  
+function hide_target() {
+
+  target.position.z = -3;
   targetVisible = false;
-  
+
   // Programmer la réapparition de la cible après 3 secondes
   clearTimeout(targetRespawnTimeout);
   targetRespawnTimeout = setTimeout(() => {
     create_target();
   }, 3000);
-  
+
   // Augmenter le score
   score += 10;
-  updateScoreDisplay();
 };
 
-const setupScoreDisplay = () => {
-  // Création du conteneur pour le score
-  const scoreContainer = document.createElement('div');
-  scoreContainer.style.position = 'absolute';
-  scoreContainer.style.top = '20px';
-  scoreContainer.style.left = '10px';
-  scoreContainer.style.width = '100px';
-  scoreContainer.style.height = '70px';
-  scoreContainer.style.display = 'flex';
-  scoreContainer.style.justifyContent = 'left';
-  scoreContainer.style.alignItems = 'center';
-  document.body.appendChild(scoreContainer);
 
-  // Création du texte du score
-  const scoreDiv = document.createElement('div');
-  scoreDiv.style.color = 'white';
-  scoreDiv.style.fontFamily = 'Arial, sans-serif';
-  scoreDiv.style.fontSize = '17px';
-  scoreDiv.style.fontWeight = 'bold';
-  scoreDiv.style.padding = '0 7px';
-  scoreDiv.style.textShadow = '1px 1px 2px black';
-  scoreDiv.textContent = 'Score: 0';
-  scoreContainer.appendChild(scoreDiv);
 
-  return scoreDiv;
-};
 
-const updateScoreDisplay = () => {
-  const scoreDiv = document.querySelector('div:contains("Score:")');
-  if (scoreDiv) {
-    scoreDiv.textContent = `Score: ${score}`;
+function playBounceSound() {
+  if (audioInitialized) {
+    zzfx(...[1, , 200, , .05, .2, 4, 2, , .5, , , , , , 6, , .1, .01]);
   }
-};
+}
+window.addEventListener('click', initAudio);
+window.addEventListener('keydown', initAudio);
+window.addEventListener('touchstart', initAudio);
+
+
 // end pong
 
-const clock = new Clock();
-
 // Main loop
-const animate = () => {
-  const delta = clock.getDelta();
-  const elapsed = clock.getElapsedTime();
+function animate(t, frame) {
 
+  const referenceSpace = renderer.xr.getReferenceSpace();
+  const session = renderer.xr.getSession();
+  if (frame) {
+    if (hitTestSourceRequested === false) {
+
+      session.requestReferenceSpace('viewer').then(function (referenceSpace) {
+
+        session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
+
+          hitTestSource = source;
+
+        });
+
+      });
+
+      session.addEventListener('end', function () {
+
+        hitTestSourceRequested = false;
+        hitTestSource = null;
+
+      });
+
+      hitTestSourceRequested = true;
+
+    }
+
+    if (hitTestSource) {
+
+      const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+      if (hitTestResults.length) {
+
+        const hit = hitTestResults[0];
+        console.log(hit)
+
+        reticle.visible = true;
+        reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+
+      } else {
+
+        reticle.visible = false;
+
+      }
+    }
+  }
   //  pong
-  // Mise à jour de la position de la balle
-  if (ball) {
-    ball.position.x += speed_ball_x;
-    ball.position.y += speed_ball_y;
-    ball.position.z += speed_ball_z;
+  raycaster.setFromCamera(mouse, camera);
 
-    // Gestion des rebonds sur les parois du cube
-    if (ball.position.x + ball_size > cube_size / 2 || ball.position.x - ball_size < -cube_size / 2) {
-      speed_ball_x = -speed_ball_x;
-      playBounceSound();
-    }
-    if (ball.position.y + ball_size > cube_size / 2 || ball.position.y - ball_size < -cube_size / 2) {
-      speed_ball_y = -speed_ball_y;
-      playBounceSound();
-    }
-    if (ball.position.z + ball_size > cube_size / 2 || ball.position.z - ball_size < -cube_size / 2) {
-      speed_ball_z = -speed_ball_z;
-      playBounceSound();
-    }
-    if (raquet) {
-      const is_in_x = ball.position.x + ball_size > raquet.position.x - raquet_size_x && 
-                      ball.position.x - ball_size < raquet.position.x + raquet_size_x;
-      const is_in_y = ball.position.y + ball_size > raquet.position.y - raquet_size_y && 
-                      ball.position.y - ball_size < raquet.position.y + raquet_size_y;
-      
-      const dist_z = Math.abs(ball.position.z - raquet.position.z);
-      
-      if (is_in_x && is_in_y && dist_z < 0.2) {
-        speed_ball_z = -speed_ball_z;
-      }
-    }
-    
-    // Collision balle-cible
-    if (targetVisible && target) {
-      const ballToTarget = new Vector3(
-        ball.position.x - target.position.x,
-        ball.position.y - target.position.y,
-        ball.position.z - target.position.z
-      );
-      
-      if (ballToTarget.length() < ball_size + 0.05) {
-        hide_target();
-        playBounceSound();
-      }
-    }
+  const intersection = raycaster.intersectObject(space_box);
+  if (intersection[0]) {
+    raquet.position.x = intersection[0].point.x
+    raquet.position.y = intersection[0].point.y
+    //raquet.position.z = intersection[0].point.z
+
+  }
+  //ball maj pos
+  ball.position.x = ball.position.x + speed_ball_x;
+  ball.position.y = ball.position.y + speed_ball_y;
+  ball.position.z = ball.position.z + speed_ball_z;
+
+  //ball raquet col
+  const is_in_x = ball.position.x + ball_size < raquet.position.x + raquet_size_x && ball.position.x - ball_size > raquet.position.x - raquet_size_x;
+  const is_in_y = ball.position.y + ball_size < raquet.position.y + raquet_size_y && ball.position.y - ball_size > raquet.position.y - raquet_size_y;
+
+  if (is_in_x && is_in_y && Math.abs(Math.abs(ball.position.z) - Math.abs(raquet.position.z)) < 0.2) {
+    speed_ball_z = - speed_ball_z
+  }
 
 
+  //rebondir
+  let size_cube = 0.5
+
+  if (ball.position.x + ball_size > size_cube || ball.position.x - ball_size < -size_cube) {
+    speed_ball_x = - speed_ball_x;
+    playBounceSound();
+  }
+  if (ball.position.y + ball_size > size_cube || ball.position.y - ball_size < -size_cube) {
+    speed_ball_y = - speed_ball_y;
+    playBounceSound();
+  }
+  if (ball.position.z + ball_size > size_cube || ball.position.z - ball_size < -size_cube) {
+    speed_ball_z = - speed_ball_z;
+    playBounceSound();
+  }
+
+  // Collision balle-cible améliorée
+  if (targetVisible) {
+    const ballToTarget = new Vector3(
+      ball.position.x - target.position.x,
+      ball.position.y - target.position.y,
+      ball.position.z - target.position.z
+    );
+
+    if (ballToTarget.length() < ball_size + 0.25) {
+      hide_target();
+    }
   }
   // end pong
 
   renderer.render(scene, camera);
-};
+}
 
 const init = () => {
   scene = new Scene();
@@ -305,104 +363,50 @@ const init = () => {
   xrButton.style.backgroundColor = 'skyblue';
   document.body.appendChild(xrButton);
 
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 1.6, 0);
-  controls.update();
 
   // pong
-  // Création du cube transparent
-  const space_boxgeometry = new BoxGeometry(cube_size, cube_size, cube_size);
-  const space_box_material = new MeshLambertMaterial({
-    side: BackSide,
-    transparent: true,
-    opacity: 0.2,
-    color: 0x88ccff
-  });
-  space_box = new Mesh(space_boxgeometry, space_box_material);
-  space_box.position.set(0, 1.6, 0); // Positionner le cube à hauteur de tête en AR
   scene.add(space_box);
-
-  // Création de la balle
-  const radius = 0.05;
-  const widthSegments = 16;
-  const heightSegments = 16;
-  const sphereGeometry = new SphereGeometry(radius, widthSegments, heightSegments);
-  const ball_material = new MeshNormalMaterial();
-  ball = new Mesh(sphereGeometry, ball_material);
-  ball.position.set(0, 1.6, 0); // Au centre du cube initialement
   scene.add(ball);
-
-  // Création de la raquette 
-  const raquet_boxgeometry = new BoxGeometry(raquet_size_x * 2, raquet_size_y * 2, 0.05);
-  const raquet_box_material = new MeshLambertMaterial({
-    color: 0xff0000,
-    transparent: true,
-    opacity: 0.7
-  });
-  raquet = new Mesh(raquet_boxgeometry, raquet_box_material);
-  raquet.position.set(0, 1.6, space_box.position.z + cube_size / 2 - 0.1); // Position initiale
   scene.add(raquet);
-  
-  // Création de la cible 
-  const radiustop = 0.05;
-  const radiusbottom = 0.05;
-  const height_disk = 0.01;
-  const radius_seg = 16;
-  const cylinderGeometry = new CylinderGeometry(
-    radiustop, radiusbottom, height_disk, radius_seg);
-  const target_material = new MeshNormalMaterial();
-  target = new Mesh(cylinderGeometry, target_material);
-  target.rotateX(Math.PI / 2);
   scene.add(target);
-  create_target(); 
-  // end pong
 
   // Gestion des entrées XR
   controller = renderer.xr.getController(0);
 
   // pong
+
+  reticle = new Mesh(
+    new RingGeometry(0.15, 0.2, 32).rotateX(- Math.PI / 2),
+    new MeshBasicMaterial()
+  );
+  reticle.matrixAutoUpdate = false;
+  reticle.visible = false;
+  scene.add(reticle);
+
   const onSelect = (event) => {
-    
+    if (reticle.visible) {
+      let x = reticle.x;
+
+      scene.add(space_box);
+      scene.add(ball);
+      scene.add(raquet);
+      scene.add(target);
+    }
   };
+
+  reticle.matrixAutoUpdate = false;
+  reticle.visible = false;
+  scene.add(reticle);
   // end pong
 
   controller.addEventListener('select', onSelect);
   scene.add(controller);
 
-  // pong
-   // Fonction pour gérer le mouvement de la raquette avec le contrôleur
-   const updateRaquetPosition = () => {
-    if (controller && raquet) {
-      // En AR, utiliser la position du contrôleur pour diriger la raquette
-      raquet.position.x = controller.position.x;
-      raquet.position.y = controller.position.y;
-      // Garder la raquette à une distance fixe devant l'utilisateur
-      raquet.position.z = space_box.position.z + cube_size / 2 - 0.1;
-    }
-  };
-  
-  // Ajouter un écouteur pour mettre à jour la position de la raquette
-  controller.addEventListener('connected', updateRaquetPosition);
-
-  // pong
-  // Initialiser l'audio sur les interactions utilisateur
-  window.addEventListener('click', initAudio);
-  window.addEventListener('keydown', initAudio);
-  window.addEventListener('touchstart', initAudio);
-  // end pong
 
   // Écouteur de redimensionnement
   window.addEventListener('resize', onWindowResize, false);
 
-  // pong
-  const scoreDiv = setupScoreDisplay();
 
-  const updateScoreDisplay = () => {
-    scoreDiv.textContent = `Score: ${score}`;
-  };
-
-  setInterval(updateScoreDisplay, 100);
-  // end pong
 };
 
 init();

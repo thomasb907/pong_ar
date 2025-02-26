@@ -36,6 +36,8 @@ import { XRDevice, metaQuest3 } from 'iwer';
 // XR
 import { XRButton } from 'three/addons/webxr/XRButton.js';
 
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
 import { ZZFX, zzfx } from 'zzfx';
 
 // If you prefer to import the whole library, with the THREE prefix, use the following line instead:
@@ -72,7 +74,7 @@ let audioInitialized = false;
 let hitTestSource = null;
 let hitTestSourceRequested = false;
 
-let speed_ball_x = 0.05;
+let speed_ball_x = 0.06;
 let speed_ball_y = 0.05;
 let speed_ball_z = 0.04;
 const ball_size = 0.05;
@@ -158,6 +160,7 @@ const space_boxgeometry = new BoxGeometry(cube_size, cube_size, cube_size);
 const space_box_material = new MeshLambertMaterial({ side: BackSide });
 const space_box = new Mesh(space_boxgeometry, space_box_material);
 
+space_box.material.color.set
 space_box.material.transparent = true;
 space_box.material.opacity = 0.3;
 
@@ -171,6 +174,11 @@ const cylinderGeometry = new CylinderGeometry(
 const raquet_boxgeometry = new BoxGeometry(0.5, 0.5, 0.1);
 const raquet_box_material = new MeshLambertMaterial();
 const raquet = new Mesh(raquet_boxgeometry, raquet_box_material);
+
+raquet.material.transparent = true;
+raquet.material.opacity = 0.3;
+
+
 
 
 renderer = new WebGLRenderer();
@@ -363,6 +371,10 @@ const init = () => {
 
   // Initialiser le groupe de jeu
   initGameGroup();
+
+
+
+  const bloomPass = new UnrealBloomPass(new Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
 
   // Gestion des entrées XR
   controller = renderer.xr.getController(0);

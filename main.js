@@ -158,6 +158,9 @@ const space_boxgeometry = new BoxGeometry(cube_size, cube_size, cube_size);
 const space_box_material = new MeshLambertMaterial({ side: BackSide });
 const space_box = new Mesh(space_boxgeometry, space_box_material);
 
+space_box.material.transparent = true;
+space_box.material.opacity = 0.3;
+
 
 const sphereGeometry = new SphereGeometry(
   radius, widthSegments, heightSegments);

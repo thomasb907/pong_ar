@@ -76,8 +76,8 @@ let speed_ball_x = 0.05;
 let speed_ball_y = 0.05;
 let speed_ball_z = 0.04;
 const ball_size = 0.05;
-const cube_size = 1;
-const size_cube = 0.5;
+const cube_size = 2;
+const size_cube = 1;
 const raquet_size_x = 0.2;
 const raquet_size_y = 0.2;
 let score = 0;
@@ -154,7 +154,7 @@ const radiusbottom = 5;
 const height_disk = 0.1;
 const radius_seg = 36;
 
-const space_boxgeometry = new BoxGeometry(1, 1, 1);
+const space_boxgeometry = new BoxGeometry(cube_size, cube_size, cube_size);
 const space_box_material = new MeshLambertMaterial({ side: BackSide });
 const space_box = new Mesh(space_boxgeometry, space_box_material);
 
@@ -165,7 +165,7 @@ const sphereGeometry = new SphereGeometry(
 const cylinderGeometry = new CylinderGeometry(
   radiustop, radiusbottom, height_disk, radius_seg);
 
-const raquet_boxgeometry = new BoxGeometry(0.05, 0.05, 0.1);
+const raquet_boxgeometry = new BoxGeometry(0.5, 0.5, 0.1);
 const raquet_box_material = new MeshLambertMaterial();
 const raquet = new Mesh(raquet_boxgeometry, raquet_box_material);
 

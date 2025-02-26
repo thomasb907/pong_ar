@@ -178,25 +178,25 @@ const ball = new Mesh(sphereGeometry, ball_material);
 ball.scale.set(0.2, 0.2, 0.2);
 
 const target_material = new MeshNormalMaterial();
-const target = new Mesh(cylinderGeometry, target_material);
-target.scale.set(0.05, 0.05, 0.05);
-target.rotateX(Math.PI / 2);
-target.position.z = -2.499;
+const target_ball = new Mesh(cylinderGeometry, target_material);
+target_ball.scale.set(0.05, 0.05, 0.05);
+target_ball.rotateX(Math.PI / 2);
+target_ball.position.z = -2.499;
 
 // Fonction pour créer et positionner la cible
 function create_target() {
   const x = (Math.random() - 0.5) * (cube_size * 0.8);
   const y = (Math.random() - 0.5) * (cube_size * 0.8);
 
-  target.position.x = x;
-  target.position.y = y;
-  target.position.z = -0.499; // Ajusté par rapport à la taille du cube
+  target_ball.position.x = x;
+  target_ball.position.y = y;
+  target_ball.position.z = -0.499; // Ajusté par rapport à la taille du cube
 
   targetVisible = true;
 }
 
 function hide_target() {
-  target.position.z = -3;
+  target_ball.position.z = -3;
   targetVisible = false;
 
   // Programmer la réapparition de la cible après 3 secondes
@@ -224,7 +224,7 @@ function initGameGroup() {
   gameGroup.add(space_box);
   gameGroup.add(ball);
   gameGroup.add(raquet);
-  gameGroup.add(target);
+  gameGroup.add(target_ball);
 
   // Positionner les éléments relativement à leur place dans le cube
   ball.position.set(0, 0, 0);
@@ -319,9 +319,9 @@ function animate(t, frame) {
     // Collision balle-cible
     if (targetVisible) {
       const ballToTarget = new Vector3(
-        ball.position.x - target.position.x,
-        ball.position.y - target.position.y,
-        ball.position.z - target.position.z
+        ball.position.x - target_ball.position.x,
+        ball.position.y - target_ball.position.y,
+        ball.position.z - target_ball.position.z
       );
 
       if (ballToTarget.length() < ball_size + 0.25) {
@@ -354,7 +354,7 @@ const init = () => {
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
 
-  const xrButton = XRButton.createButton(renderer, {});
+  const xrButton = XRButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
   xrButton.style.backgroundColor = 'skyblue';
   document.body.appendChild(xrButton);
 

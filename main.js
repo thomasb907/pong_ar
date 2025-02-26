@@ -25,7 +25,8 @@ import {
   TextureLoader,
   RingGeometry,
   MeshBasicMaterial,
-  PointLight
+  PointLight,
+  Group
 } from 'three';
 
 // XR Emulator
@@ -81,6 +82,8 @@ const raquet_size_y = 0.2;
 let score = 0;
 let targetVisible = true;
 let targetRespawnTimeout = null;
+let gameGroup = null; // Groupe pour contenir tous les éléments du jeu
+let gameActive = false; // Flag pour savoir si le jeu est actif
 
 const initAudio = () => {
   if (!audioInitialized) {
@@ -135,11 +138,6 @@ async function setupXR(xrMode) {
 
 await setupXR('immersive-ar');
 
-// pong 
-
-
-// end pong
-
 // Variables pour la scène
 let camera, scene, renderer;
 let controller;
@@ -176,19 +174,14 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const ball_material = new MeshNormalMaterial();
-const ball = new Mesh(sphereGeometry, ball_material)
+const ball = new Mesh(sphereGeometry, ball_material);
 ball.scale.set(0.2, 0.2, 0.2);
-
-
 
 const target_material = new MeshNormalMaterial();
 const target = new Mesh(cylinderGeometry, target_material);
 target.scale.set(0.05, 0.05, 0.05);
 target.rotateX(Math.PI / 2);
 target.position.z = -2.499;
-
-
-
 
 // Fonction pour créer et positionner la cible
 function create_target() {
@@ -197,14 +190,12 @@ function create_target() {
 
   target.position.x = x;
   target.position.y = y;
-  target.position.z = -2.499;
+  target.position.z = -0.499; // Ajusté par rapport à la taille du cube
 
   targetVisible = true;
 }
 
-
 function hide_target() {
-
   target.position.z = -3;
   targetVisible = false;
 
@@ -216,124 +207,128 @@ function hide_target() {
 
   // Augmenter le score
   score += 10;
-};
-
-
-
+}
 
 function playBounceSound() {
   if (audioInitialized) {
     zzfx(...[1, , 200, , .05, .2, 4, 2, , .5, , , , , , 6, , .1, .01]);
   }
 }
+
+// Initialiser le groupe de jeu
+function initGameGroup() {
+  // Créer un groupe pour contenir tous les éléments du jeu
+  gameGroup = new Group();
+
+  // Ajouter tous les éléments du jeu au groupe
+  gameGroup.add(space_box);
+  gameGroup.add(ball);
+  gameGroup.add(raquet);
+  gameGroup.add(target);
+
+  // Positionner les éléments relativement à leur place dans le cube
+  ball.position.set(0, 0, 0);
+  raquet.position.set(0, 0, 0.4);
+  create_target();
+
+  // Le groupe n'est pas visible par défaut
+  gameGroup.visible = false;
+
+  // Ajouter le groupe à la scène
+  scene.add(gameGroup);
+}
+
 window.addEventListener('click', initAudio);
 window.addEventListener('keydown', initAudio);
 window.addEventListener('touchstart', initAudio);
 
-
-// end pong
-
 // Main loop
 function animate(t, frame) {
-
   const referenceSpace = renderer.xr.getReferenceSpace();
   const session = renderer.xr.getSession();
+
   if (frame) {
     if (hitTestSourceRequested === false) {
-
       session.requestReferenceSpace('viewer').then(function (referenceSpace) {
-
         session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
-
           hitTestSource = source;
-
         });
-
       });
 
       session.addEventListener('end', function () {
-
         hitTestSourceRequested = false;
         hitTestSource = null;
-
       });
 
       hitTestSourceRequested = true;
-
     }
 
     if (hitTestSource) {
-
       const hitTestResults = frame.getHitTestResults(hitTestSource);
 
       if (hitTestResults.length) {
-
         const hit = hitTestResults[0];
-        console.log(hit)
 
         reticle.visible = true;
         reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
-
       } else {
-
         reticle.visible = false;
-
       }
     }
   }
-  //  pong
-  raycaster.setFromCamera(mouse, camera);
 
-  const intersection = raycaster.intersectObject(space_box);
-  if (intersection[0]) {
-    raquet.position.x = intersection[0].point.x
-    raquet.position.y = intersection[0].point.y
-    //raquet.position.z = intersection[0].point.z
+  if (gameActive) {
+    raycaster.setFromCamera(mouse, camera);
 
-  }
-  //ball maj pos
-  ball.position.x = ball.position.x + speed_ball_x;
-  ball.position.y = ball.position.y + speed_ball_y;
-  ball.position.z = ball.position.z + speed_ball_z;
+    const intersection = raycaster.intersectObject(space_box);
+    if (intersection[0]) {
+      raquet.position.x = intersection[0].point.x - gameGroup.position.x;
+      raquet.position.y = intersection[0].point.y - gameGroup.position.y;
+    }
 
-  //ball raquet col
-  const is_in_x = ball.position.x + ball_size < raquet.position.x + raquet_size_x && ball.position.x - ball_size > raquet.position.x - raquet_size_x;
-  const is_in_y = ball.position.y + ball_size < raquet.position.y + raquet_size_y && ball.position.y - ball_size > raquet.position.y - raquet_size_y;
+    // Ball movement
+    ball.position.x = ball.position.x + speed_ball_x;
+    ball.position.y = ball.position.y + speed_ball_y;
+    ball.position.z = ball.position.z + speed_ball_z;
 
-  if (is_in_x && is_in_y && Math.abs(Math.abs(ball.position.z) - Math.abs(raquet.position.z)) < 0.2) {
-    speed_ball_z = - speed_ball_z
-  }
+    // Collision avec la raquette
+    const is_in_x = ball.position.x + ball_size < raquet.position.x + raquet_size_x && ball.position.x - ball_size > raquet.position.x - raquet_size_x;
+    const is_in_y = ball.position.y + ball_size < raquet.position.y + raquet_size_y && ball.position.y - ball_size > raquet.position.y - raquet_size_y;
 
+    if (is_in_x && is_in_y && Math.abs(Math.abs(ball.position.z) - Math.abs(raquet.position.z)) < 0.2) {
+      speed_ball_z = -speed_ball_z;
+      playBounceSound();
+    }
 
-  //rebondir
-  let size_cube = 0.5
+    // Collision avec les bords du cube
+    let size_cube = 0.5;
 
-  if (ball.position.x + ball_size > size_cube || ball.position.x - ball_size < -size_cube) {
-    speed_ball_x = - speed_ball_x;
-    playBounceSound();
-  }
-  if (ball.position.y + ball_size > size_cube || ball.position.y - ball_size < -size_cube) {
-    speed_ball_y = - speed_ball_y;
-    playBounceSound();
-  }
-  if (ball.position.z + ball_size > size_cube || ball.position.z - ball_size < -size_cube) {
-    speed_ball_z = - speed_ball_z;
-    playBounceSound();
-  }
+    if (ball.position.x + ball_size > size_cube || ball.position.x - ball_size < -size_cube) {
+      speed_ball_x = -speed_ball_x;
+      playBounceSound();
+    }
+    if (ball.position.y + ball_size > size_cube || ball.position.y - ball_size < -size_cube) {
+      speed_ball_y = -speed_ball_y;
+      playBounceSound();
+    }
+    if (ball.position.z + ball_size > size_cube || ball.position.z - ball_size < -size_cube) {
+      speed_ball_z = -speed_ball_z;
+      playBounceSound();
+    }
 
-  // Collision balle-cible améliorée
-  if (targetVisible) {
-    const ballToTarget = new Vector3(
-      ball.position.x - target.position.x,
-      ball.position.y - target.position.y,
-      ball.position.z - target.position.z
-    );
+    // Collision balle-cible
+    if (targetVisible) {
+      const ballToTarget = new Vector3(
+        ball.position.x - target.position.x,
+        ball.position.y - target.position.y,
+        ball.position.z - target.position.z
+      );
 
-    if (ballToTarget.length() < ball_size + 0.25) {
-      hide_target();
+      if (ballToTarget.length() < ball_size + 0.25) {
+        hide_target();
+      }
     }
   }
-  // end pong
 
   renderer.render(scene, camera);
 }
@@ -363,20 +358,14 @@ const init = () => {
   xrButton.style.backgroundColor = 'skyblue';
   document.body.appendChild(xrButton);
 
-
-  // pong
-  scene.add(space_box);
-  scene.add(ball);
-  scene.add(raquet);
-  scene.add(target);
+  // Initialiser le groupe de jeu
+  initGameGroup();
 
   // Gestion des entrées XR
   controller = renderer.xr.getController(0);
 
-  // pong
-
   reticle = new Mesh(
-    new RingGeometry(0.15, 0.2, 32).rotateX(- Math.PI / 2),
+    new RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
     new MeshBasicMaterial()
   );
   reticle.matrixAutoUpdate = false;
@@ -385,37 +374,41 @@ const init = () => {
 
   const onSelect = (event) => {
     if (reticle.visible) {
-      let x = reticle.x;
+      // Extraire la position et l'orientation du reticle
+      const matrix = new Array(16);
+      reticle.matrix.toArray(matrix);
 
-      scene.add(space_box);
-      scene.add(ball);
-      scene.add(raquet);
-      scene.add(target);
+      // Extraire la position du reticle
+      const position = new Vector3();
+      position.setFromMatrixPosition(reticle.matrix);
+
+      // Placer le groupe de jeu à la position du clic
+      gameGroup.position.copy(position);
+
+      // Activer et rendre visible le groupe de jeu
+      gameGroup.visible = true;
+      gameActive = true;
+
+      // Réinitialiser la position de la balle au centre du cube
+      ball.position.set(0, 0, 0);
+
+      // Réinitialiser la position de la cible
+      create_target();
     }
   };
-
-  reticle.matrixAutoUpdate = false;
-  reticle.visible = false;
-  scene.add(reticle);
-  // end pong
 
   controller.addEventListener('select', onSelect);
   scene.add(controller);
 
-
   // Écouteur de redimensionnement
   window.addEventListener('resize', onWindowResize, false);
-
-
 };
 
 init();
 
 function onWindowResize() {
-
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 
-  renderer.setSize(window.innerWidth, window.innerHeight);
-
+  renderer.setSize(window.innerWidth / window.innerHeight);
 }

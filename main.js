@@ -77,6 +77,7 @@ let speed_ball_y = 0.05;
 let speed_ball_z = 0.04;
 const ball_size = 0.05;
 const cube_size = 1;
+const size_cube = 0.5;
 const raquet_size_x = 0.2;
 const raquet_size_y = 0.2;
 let score = 0;
@@ -300,8 +301,7 @@ function animate(t, frame) {
       playBounceSound();
     }
 
-    // Collision avec les bords du cube
-    let size_cube = 0.5;
+
 
     if (ball.position.x + ball_size > size_cube || ball.position.x - ball_size < -size_cube) {
       speed_ball_x = -speed_ball_x;

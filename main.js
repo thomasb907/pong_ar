@@ -60,10 +60,10 @@ import {
 let bricks = [];
 const BRICK_ROWS = 4;
 const BRICK_COLS = 6;
-const BRICK_WIDTH = 0.3;
-const BRICK_HEIGHT = 0.15;
-const BRICK_DEPTH = 0.05;
-const BRICK_GAP = 0.05;
+const BRICK_WIDTH = 0.15;  // Réduit pour s'adapter au cube plus petit
+const BRICK_HEIGHT = 0.075; // Réduit pour s'adapter au cube plus petit
+const BRICK_DEPTH = 0.025;  // Réduit pour s'adapter au cube plus petit
+const BRICK_GAP = 0.025;    // Réduit pour s'adapter au cube plus petit
 let gameInitialized = false; // Pour suivre si le premier clic a été fait
 
 // Pong variables
@@ -72,18 +72,19 @@ let audioInitialized = false;
 let hitTestSource = null;
 let hitTestSourceRequested = false;
 
-let speed_ball_x = 0.04;
-let speed_ball_y = 0.03;
-let speed_ball_z = 0;  // En 2D, on n'utilise pas Z pour le mouvement
-const ball_size = 0.05;
-const cube_size = 2;
-const paddle_width = 0.5;  // Renommé de raquet_size_x
-const paddle_height = 0.1; // Renommé et réduit
+let speed_ball_x = 0.02;  // Vitesse initiale réduite pour s'adapter au cube plus petit
+let speed_ball_y = 0.015; // Vitesse initiale réduite pour s'adapter au cube plus petit
+let speed_ball_z = 0;     // En 2D, on n'utilise pas Z pour le mouvement
+const ball_size = 0.025;  // Réduit pour s'adapter au cube plus petit
+const cube_size = 1;      // Réduit à 1 comme demandé
+const paddle_width = 0.25; // Réduit pour s'adapter au cube plus petit
+const paddle_height = 0.05; // Réduit pour s'adapter au cube plus petit
 let score = 0;
 let gameGroup = null;
 let gameActive = false;
 let gameOver = false;
 let lives = 3;
+let ball_speed_multiplier = 1.0; // Pour ajuster progressivement la vitesse
 
 // Fonction audio
 const initAudio = () => {
@@ -138,8 +139,8 @@ let camera, scene, renderer;
 let controller;
 let reticle;
 
-const y_cube = 2.5;
-const game_depth = 0.5; // Profondeur du jeu (épaisseur du "cadre")
+const y_cube = 1.25; // Réduit pour s'adapter au cube plus petit
+const game_depth = 0.25; // Profondeur du jeu (épaisseur du "cadre") réduite pour s'adapter au cube plus petit
 
 // Géométries et matériaux
 const space_boxgeometry = new BoxGeometry(cube_size, cube_size, game_depth);
@@ -152,22 +153,22 @@ space_box.material.opacity = 0.3;
 const sphereGeometry = new SphereGeometry(ball_size, 16, 16);
 
 // Paddle (renommé de raquet)
-const paddleGeometry = new BoxGeometry(paddle_width, paddle_height, 0.05);
+const paddleGeometry = new BoxGeometry(paddle_width, paddle_height, 0.025);
 const paddleMaterial = new MeshLambertMaterial({ color: 0x0088ff });
 const paddle = new Mesh(paddleGeometry, paddleMaterial);
 
 // Barettes pour créer le cadre du jeu
-const barette_1_geometry = new BoxGeometry(0.1, y_cube, 0.1);
+const barette_1_geometry = new BoxGeometry(0.05, y_cube, 0.05);
 const barette_1_material = new MeshPhongMaterial({ color: 0x7f00ff });
 const barette1 = new Mesh(barette_1_geometry, barette_1_material);
-barette1.position.set(-1.21, 0, 0);
+barette1.position.set(-0.6, 0, 0); // Ajusté pour le cube plus petit
 
 const barette2 = new Mesh(barette_1_geometry, barette_1_material);
-barette2.position.set(1.21, 0, 0);
+barette2.position.set(0.6, 0, 0); // Ajusté pour le cube plus petit
 
-const barette_3_geometry = new BoxGeometry(y_cube, 0.1, 0.1);
+const barette_3_geometry = new BoxGeometry(y_cube, 0.05, 0.05);
 const barette3 = new Mesh(barette_3_geometry, barette_1_material);
-barette3.position.set(0, 1.21, 0);
+barette3.position.set(0, 0.6, 0); // Ajusté pour le cube plus petit
 
 const ball_material = new MeshNormalMaterial();
 const ball = new Mesh(sphereGeometry, ball_material);
@@ -184,7 +185,7 @@ function createBricks() {
   const totalHeight = BRICK_ROWS * (BRICK_HEIGHT + BRICK_GAP) - BRICK_GAP;
 
   const startX = -totalWidth / 2;
-  const startY = cube_size / 2 - totalHeight - 0.2; // Placer en haut avec un peu d'espace
+  const startY = cube_size / 2 - totalHeight - 0.1; // Placer en haut avec un peu d'espace
 
   const colors = [0xff0000, 0xff7700, 0xffff00, 0x00ff00, 0x0077ff];
 
@@ -206,12 +207,12 @@ function createBricks() {
 
 // Réinitialiser la balle
 function resetBall() {
-  ball.position.set(0, -0.5, 0);
+  ball.position.set(0, -0.25, 0); // Position ajustée pour le cube plus petit
 
   // Direction aléatoire mais toujours vers le haut
   const angle = (Math.random() * Math.PI / 4) + Math.PI / 4; // entre 45° et 135°
-  speed_ball_x = 0.04 * Math.cos(angle);
-  speed_ball_y = 0.04 * Math.sin(angle);
+  speed_ball_x = 0.02 * Math.cos(angle) * ball_speed_multiplier;
+  speed_ball_y = 0.02 * Math.sin(angle) * ball_speed_multiplier;
 
   if (Math.random() > 0.5) speed_ball_x = -speed_ball_x; // Aléatoirement à gauche ou droite
 }
@@ -225,6 +226,12 @@ function playBounceSound() {
 function playBrickHitSound() {
   if (audioInitialized) {
     zzfx(...[2, , 300, .01, , .3, 3, 2, , , , , , , , , .1, .5, .02]);
+  }
+}
+
+function playMissSound() {
+  if (audioInitialized) {
+    zzfx(...[1, , 100, .01, .1, .3, 1, .5, , , , , , 1, , , .1, .2, .05]);
   }
 }
 
@@ -243,7 +250,7 @@ function initGameGroup() {
 
   // Positionner les éléments
   resetBall();
-  paddle.position.set(0, -1, 0); // Paddle en bas
+  paddle.position.set(0, -0.5, 0); // Paddle en bas, ajusté pour le cube plus petit
 
   // Créer les briques
   createBricks();
@@ -302,7 +309,7 @@ function animate(t, frame) {
           const relativeX = position.x - gameGroup.position.x;
 
           // Limiter le paddle aux bords du jeu
-          const paddleLimit = cube_size / 2 - paddle_width / 2 - 0.1;
+          const paddleLimit = cube_size / 2 - paddle_width / 2 - 0.05;
           paddle.position.x = Math.max(-paddleLimit, Math.min(paddleLimit, relativeX));
         }
       } else {
@@ -317,25 +324,34 @@ function animate(t, frame) {
     ball.position.y += speed_ball_y;
 
     // Vérifier les collisions avec les murs latéraux
-    if (ball.position.x + ball_size > cube_size / 2 - 0.1 || ball.position.x - ball_size < -cube_size / 2 + 0.1) {
+    if (ball.position.x + ball_size > cube_size / 2 - 0.05 || ball.position.x - ball_size < -cube_size / 2 + 0.05) {
       speed_ball_x = -speed_ball_x;
       playBounceSound();
     }
 
     // Vérifier la collision avec le mur supérieur
-    if (ball.position.y + ball_size > cube_size / 2 - 0.1) {
+    if (ball.position.y + ball_size > cube_size / 2 - 0.05) {
       speed_ball_y = -speed_ball_y;
       playBounceSound();
     }
 
-    // Vérifier si la balle tombe en bas (perte de vie)
-    if (ball.position.y - ball_size < -cube_size / 2 + 0.1) {
-      lives--;
-      if (lives <= 0) {
-        gameOver = true;
-      } else {
-        resetBall();
-      }
+    // Vérifier si la balle touche le bord inférieur
+    if (ball.position.y - ball_size < -0.65) {  // Plus bas que le paddle d'environ une hauteur de paddle
+      // Faire rebondir la balle sur le bord inférieur imaginaire
+      speed_ball_y = Math.abs(speed_ball_y); // Inverser la direction verticale (vers le haut)
+
+      // Réinitialiser le multiplicateur de vitesse à la valeur de base
+      ball_speed_multiplier = 1.0;
+
+      // Recalculer les vitesses avec le multiplicateur réinitialisé
+      const angle = Math.atan2(speed_ball_y, speed_ball_x);
+      speed_ball_x = 0.02 * Math.cos(angle);
+      speed_ball_y = 0.02 * Math.sin(angle);
+
+      // Assurer que la balle ne reste pas coincée à la position de rebond
+      ball.position.y = -0.65 + ball_size + 0.01;
+
+      playMissSound();
     }
 
     // Collision avec le paddle
@@ -345,17 +361,27 @@ function animate(t, frame) {
     const paddleRight = paddle.position.x + paddle_width / 2;
 
     if (ball.position.x >= paddleLeft && ball.position.x <= paddleRight &&
-      ball.position.y - ball_size <= paddleTop && ball.position.y - ball_size >= paddleBottom - 0.03) {
+      ball.position.y - ball_size <= paddleTop && ball.position.y >= paddleBottom) {
 
-      // Rebond avec changement d'angle selon la position sur le paddle
-      const paddleCenter = paddle.position.x;
-      const impact = (ball.position.x - paddleCenter) / (paddle_width / 2);
+      // Vérifier si la balle va vers le bas (vitesse Y négative)
+      if (speed_ball_y < 0) {
+        // Inverser la direction verticale
+        speed_ball_y = -speed_ball_y;
 
-      speed_ball_y = -Math.abs(speed_ball_y); // Toujours rebondir vers le haut
-      speed_ball_x = 0.04 * impact; // -1 à gauche, 1 à droite
+        // Augmenter légèrement la vitesse globale
+        ball_speed_multiplier += 0.05;
 
-      playBounceSound();
+        // Appliquer le multiplicateur aux deux composantes de vitesse
+        speed_ball_x *= ball_speed_multiplier / (ball_speed_multiplier - 0.05);
+        speed_ball_y *= ball_speed_multiplier / (ball_speed_multiplier - 0.05);
+
+        // Éviter que la balle ne reste coincée dans le paddle
+        ball.position.y = paddleTop + ball_size + 0.001;
+
+        playBounceSound();
+      }
     }
+
 
     // Collision avec les briques
     for (let i = bricks.length - 1; i >= 0; i--) {

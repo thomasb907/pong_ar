@@ -1,3 +1,25 @@
+# pong_ar
+
+Le projet est un casse brique ou l'on se déplace avec le téléphone pour faire bouger le padle .
+- Voici le lien pour le projet :[Jeu](https://thomasb907.github.io/pong_ar/)
+
+- Il faut cliquer pour posé la zone sur laquelle le jeu sera placé 
+- Il y a du son basique pour 3 actions casser une brique ,colision balle padle,colision balle bas (padle non raté)
+- Après test une orientation friendly a été décidé raté la balle fait juste perdre de la vitesse
+- Une fois le jeu complété une autre grille complete revient à nouveau
+
+Pour pouvoir jouer il suffit d'aller sur le lien directement sur mobile ou l'en générant un lien avec qr code et en prenant en photo ce dernier.
+
+
+
+
+
+
+
+
+
+
+
 # three_vite_xr
 THREE.js + WebXR template using [Vite](https://vitejs.dev).
 
